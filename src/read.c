@@ -20,7 +20,18 @@ gif_err_t gif_open_file(const char *const path, gif_t *gif) {
     return result;
 }
 
+gif_err_t gif_read_color_table(FILE *file, gif_color_table_t *tbl, uint16_t entries) {
+    tbl->len = entries;
+    tbl->entries = calloc(tbl->len, sizeof(*tbl->entries));
+    if(tbl->entries == NULL) { return GIF_R_ALLOC; }
+    if(fread(tbl->entries, sizeof(*tbl->entries), tbl->len, file) != tbl->len) {
+        return GIF_R_FERROR;
+    }
+    return GIF_R_OK;
+}
+
 gif_err_t gif_read_file(FILE *file, gif_t *gif) {
+    gif_err_t res;
     if(fread(&gif->header, sizeof(gif->header), 1, file) != 1) { return GIF_R_FERROR; }
     if(!IS_LITTLE_ENDIAN) {
         le_to_host(&gif->header.header, sizeof(gif->header.header));
@@ -33,18 +44,13 @@ gif_err_t gif_read_file(FILE *file, gif_t *gif) {
     }
 
     if(gif->header.has_gct != 0) {
-        gif->gct.len = gif_header_gct_entries_count(&gif->header);
-        gif->gct.entries = calloc(gif->gct.len, sizeof(*gif->gct.entries));
-        if(gif->gct.entries == NULL) { return GIF_R_ALLOC; }
-        if(fread(gif->gct.entries, sizeof(*gif->gct.entries), gif->gct.len, file) != gif->gct.len) {
-            return GIF_R_FERROR;
-        }
+        uint16_t entries = gif_header_gct_entries_count(&gif->header);
+        if((res = gif_read_color_table(file, &gif->gct, entries)) != GIF_R_OK) { return res; }
     } else {
         gif->gct.entries = NULL;
         gif->gct.len = 0;
     }
-    
-    gif_err_t res;
+
     if((res = gif_image_blocks_new(&gif->blocks)) != GIF_R_OK) { return res; }
     
     bool trailer = false;
@@ -65,6 +71,15 @@ gif_err_t gif_read_file(FILE *file, gif_t *gif) {
                 }
                 
                 size_t len = img.descriptor.width + img.descriptor.height;
+                
+                if(img.descriptor.has_lct != 0) {
+                    uint16_t entries = gif_image_descriptor_lct_entries_count(&img.descriptor);
+                    if((res = gif_read_color_table(file, &img.lct, entries))) { return GIF_R_OK; }
+                } else {
+                    img.lct.entries = NULL;
+                    img.lct.len = 0;
+                }
+
                 gif_image_index_t *pxdata = calloc(sizeof(gif_image_index_t), len);
                 if(pxdata == NULL) { return GIF_R_ALLOC; }
                 if((res = gif_read_subblocks(file, pxdata, len)) != GIF_R_OK) { return res; }
@@ -142,22 +157,6 @@ gif_err_t gif_image_blocks_add(gif_image_blocks_t *blocks, gif_image_block_t img
     blocks->images[blocks->len] = img;
     blocks->len += 1;
     return GIF_R_OK;
-}
-
-uint16_t gif_header_gct_entries_count(const gif_header_t *const header) {
-    return (1UL << (header->gct_sz + 1));
-}
-
-uint16_t gif_header_gct_size_bytes(const gif_header_t *const header) {
-    return sizeof(gif_color_t) * gif_header_gct_entries_count(header);
-}
-
-uint16_t gif_image_descriptor_lct_entries_count(const gif_image_descriptor_t *const header) {
-    return (1UL << (header->lct_sz + 1));
-}
-
-uint16_t gif_image_descriptor_lct_size_bytes(const gif_image_descriptor_t *const header) {
-    return sizeof(gif_color_t) * gif_image_descriptor_lct_entries_count(header);
 }
 
 char const *const gif_err_str(gif_err_t err) {

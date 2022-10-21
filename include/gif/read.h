@@ -30,6 +30,7 @@ typedef struct gif_image_block_t {
     gif_image_descriptor_t descriptor;
     gif_image_index_t *buf;
     size_t buf_sz;
+    gif_color_table_t lct;
 } gif_image_block_t;
 
 /** \brief Resizable buffer containing multiple image blocks */
