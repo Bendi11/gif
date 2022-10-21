@@ -32,6 +32,13 @@ typedef struct gif_image_block_t {
     size_t buf_sz;
 } gif_image_block_t;
 
+/** \brief Resizable buffer containing multiple image blocks */
+typedef struct gif_image_blocks_t {
+    gif_image_block_t *images;
+    size_t len;
+    size_t cap;
+} gif_image_blocks_t;
+
 /**
  * Structure representing a parsed GIF file that can be read from or written to a file
  */
@@ -40,9 +47,15 @@ typedef struct gif_t {
     gif_header_t header;
     /** Global color table, has length 0 if there is no GCT */
     gif_color_table_t gct;
-    /** Buffer containing all image data blocks */
-    gif_image_block_t *blocks;
+    /** Buffer containing all images in the GIF file */
+    gif_image_blocks_t blocks;
 } gif_t;
+
+/** \brief Create a new `gif_image_blocks_t` structure with a default capacity */
+gif_err_t gif_image_blocks_new(gif_image_blocks_t *blocks);
+
+/** \brief **Move** the given image structure into this buffer */
+gif_err_t gif_image_blocks_add(gif_image_blocks_t *blocks, gif_image_block_t img);
 
 /** \brief Open the gif file at the given path and attempt to parse a GIF file  */
 gif_err_t gif_open_file(const char *const path, gif_t *gif);

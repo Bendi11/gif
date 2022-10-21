@@ -10,6 +10,8 @@
 
 gif_err_t gif_image_descriptor_read(gif_image_descriptor_t *img, FILE *file);
 
+gif_err_t gif_skip_subblocks(FILE *file);
+
 gif_err_t gif_open_file(const char *const path, gif_t *gif) {
     FILE *file = fopen(path, "r");
     if(file == NULL) { return GIF_R_FERROR; }
@@ -42,6 +44,9 @@ gif_err_t gif_read_file(FILE *file, gif_t *gif) {
         gif->gct.len = 0;
     }
     
+    gif_err_t res;
+    if((res = gif_image_blocks_new(&gif->blocks)) != GIF_R_OK) { return res; }
+    
     bool trailer = false;
     while(!trailer) {
         uint8_t introducer = GIF_INTRODUCER_TRAILER;
@@ -53,20 +58,28 @@ gif_err_t gif_read_file(FILE *file, gif_t *gif) {
             } break;
 
             case GIF_INTRODUCER_IMG: {
-                gif_image_descriptor_t descriptor = {0};
-                descriptor.separator = introducer;
-                gif_err_t res;
-                if((res = gif_image_descriptor_read(&descriptor, file)) != GIF_R_OK) {
+                gif_image_block_t img = {0};
+                img.descriptor.separator = introducer;
+                if((res = gif_image_descriptor_read(&img.descriptor, file)) != GIF_R_OK) {
                     return res;
                 }
                 
-                size_t len = descriptor.width + descriptor.height;
+                size_t len = img.descriptor.width + img.descriptor.height;
                 gif_image_index_t *pxdata = calloc(sizeof(gif_image_index_t), len);
                 if(pxdata == NULL) { return GIF_R_ALLOC; }
                 if((res = gif_read_subblocks(file, pxdata, len)) != GIF_R_OK) { return res; }
                 
-                 
+                img.buf = pxdata;
+                img.buf_sz = len;
+                gif_image_blocks_add(&gif->blocks, img);
             } break;
+
+            case GIF_INTRODUCER_EXT: {
+                uint8_t bytes[2] = {0};
+                if(fread(bytes, sizeof(uint8_t), 2, file) != 2) { return GIF_R_FERROR; }
+                fseek(file, bytes[1] + 1, SEEK_CUR);
+                if((res = gif_skip_subblocks(file)) != GIF_R_OK) { return res; }
+            }
         }
     }  
 
@@ -100,6 +113,34 @@ gif_err_t gif_read_subblocks(FILE *file, void *data, size_t len) {
         idx += nbytes;
     }
 
+    return GIF_R_OK;
+}
+
+gif_err_t gif_skip_subblocks(FILE *file) {
+    for(;;) {
+        uint8_t nbytes;
+        if(fread(&nbytes, sizeof(nbytes), 1, file) != 1) { return GIF_R_FERROR; }
+        if(nbytes == 0) { return GIF_R_OK; }
+        fseek(file, nbytes, SEEK_CUR);
+    }
+}
+
+gif_err_t gif_image_blocks_new(gif_image_blocks_t *blocks) {
+    blocks->cap = 2;
+    blocks->images = calloc(sizeof(*blocks->images), blocks->cap);
+    if(blocks->images == NULL) { return GIF_R_ALLOC; }
+    blocks->len = 0;
+    return GIF_R_OK;
+}
+
+gif_err_t gif_image_blocks_add(gif_image_blocks_t *blocks, gif_image_block_t img) {
+    if(blocks->len == blocks->cap) {
+        blocks->cap <<= 1;
+        blocks->images = reallocarray(blocks->images, sizeof(img), blocks->cap);
+        if(blocks->images == NULL) { return GIF_R_ALLOC; }
+    }
+    blocks->images[blocks->len] = img;
+    blocks->len += 1;
     return GIF_R_OK;
 }
 
