@@ -1,5 +1,19 @@
 #include "gif/header.h"
-#include <gif/color.h>
+#include "gif/read.h"
+#include "gif/color.h"
+#include <malloc.h>
+
+
+gif_err_t gif_read_color_table(FILE *file, gif_color_table_t *tbl, uint16_t entries) {
+    tbl->len = entries;
+    tbl->entries = calloc(tbl->len, sizeof(*tbl->entries));
+    if(tbl->entries == NULL) { return GIF_R_ALLOC; }
+    if(fread(tbl->entries, sizeof(*tbl->entries), tbl->len, file) != tbl->len) {
+        return GIF_R_FERROR;
+    }
+    return GIF_R_OK;
+}
+
 
 uint16_t gif_header_gct_entries_count(const gif_header_t *const header) {
     return (1UL << (header->gct_sz + 1));

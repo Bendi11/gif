@@ -1,5 +1,6 @@
 #pragma once
 
+#include "gif/color.h"
 #include <stdint.h>
 
 enum {
@@ -7,6 +8,8 @@ enum {
     GIF_INTRODUCER_EXT = 0x21,
     GIF_INTRODUCER_TRAILER = 0x3B
 };
+
+#pragma pack(push,1)
 
 /**
  * \brief GIF file header that must be present in all files
@@ -22,9 +25,10 @@ typedef struct gif_header_t {
     uint8_t gct_sort : 1;
     uint8_t gct_sz : 3;
 
-    uint8_t bg_color;
+    gif_color_index_t bg_color;
     uint8_t default_aspect_ratio;
 } gif_header_t;
+
 
 /** Header of an image descriptor header */
 typedef struct gif_image_descriptor_t {
@@ -41,6 +45,9 @@ typedef struct gif_image_descriptor_t {
     uint8_t interlace : 1;
     uint8_t has_lct : 1;
 } gif_image_descriptor_t;
+
+
+#pragma pack(pop)
 
 /** \brief Get the number of Global Color Table entries in the given GIF header */
 uint16_t gif_header_gct_entries_count(gif_header_t const *const header);

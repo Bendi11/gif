@@ -20,15 +20,6 @@ gif_err_t gif_open_file(const char *const path, gif_t *gif) {
     return result;
 }
 
-gif_err_t gif_read_color_table(FILE *file, gif_color_table_t *tbl, uint16_t entries) {
-    tbl->len = entries;
-    tbl->entries = calloc(tbl->len, sizeof(*tbl->entries));
-    if(tbl->entries == NULL) { return GIF_R_ALLOC; }
-    if(fread(tbl->entries, sizeof(*tbl->entries), tbl->len, file) != tbl->len) {
-        return GIF_R_FERROR;
-    }
-    return GIF_R_OK;
-}
 
 gif_err_t gif_read_file(FILE *file, gif_t *gif) {
     gif_err_t res;
@@ -59,11 +50,13 @@ gif_err_t gif_read_file(FILE *file, gif_t *gif) {
         if(fread(&introducer, 1, sizeof(introducer), file) != 1) { return GIF_R_FERROR; }
         switch(introducer) {
             case GIF_INTRODUCER_TRAILER: {
+                puts("trailer");
                 trailer = true;
                 continue;
             } break;
 
             case GIF_INTRODUCER_IMG: {
+                puts("img");
                 gif_image_block_t img = {0};
                 img.descriptor.separator = introducer;
                 if((res = gif_image_descriptor_read(&img.descriptor, file)) != GIF_R_OK) {
@@ -80,7 +73,7 @@ gif_err_t gif_read_file(FILE *file, gif_t *gif) {
                     img.lct.len = 0;
                 }
 
-                gif_image_index_t *pxdata = calloc(sizeof(gif_image_index_t), len);
+                gif_color_index_t *pxdata = calloc(sizeof(gif_color_index_t), len);
                 if(pxdata == NULL) { return GIF_R_ALLOC; }
                 if((res = gif_read_subblocks(file, pxdata, len)) != GIF_R_OK) { return res; }
                 
@@ -92,9 +85,14 @@ gif_err_t gif_read_file(FILE *file, gif_t *gif) {
             case GIF_INTRODUCER_EXT: {
                 uint8_t bytes[2] = {0};
                 if(fread(bytes, sizeof(uint8_t), 2, file) != 2) { return GIF_R_FERROR; }
-                fseek(file, bytes[1] + 1, SEEK_CUR);
+                printf("ext lbl = %X, bs = %X\n", bytes[0], bytes[1]);
+                fseek(file, bytes[1], SEEK_CUR);
                 if((res = gif_skip_subblocks(file)) != GIF_R_OK) { return res; }
             }
+
+            default: {
+                fprintf(stderr, "Unknown introducer %X\n", introducer);
+            } break;
         }
     }  
 
