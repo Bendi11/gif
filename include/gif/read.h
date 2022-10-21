@@ -1,5 +1,6 @@
 #pragma once
 
+#include "gif/color.h"
 #include "gif/header.h"
 #include <stdint.h>
 #include <stdio.h>
@@ -8,20 +9,39 @@
 enum {
     GIF_R_OK,
     GIF_R_FERROR,
-    GIF_R_INVALID_HEADER,  
+    GIF_R_INVALID_HEADER,
+    GIF_R_ALLOC,
 };
 
 
 typedef uint8_t gif_err_t;
 
-
+/** \brief Get a NULL-terminated string representing an error message for the given error code */
 char const *const gif_err_str(gif_err_t err);
+
+/** \brief A GIF local or global color table mapping color indexes per pixel to RGB colors */
+typedef struct gif_color_table_t {
+    gif_color_t *entries;
+    uint16_t len;
+} gif_color_table_t;
+
+/** \brief Structure containing an image descriptor and a buffer containing all de-interleaved color indices for each pixel */
+typedef struct gif_image_block_t {
+    gif_image_descriptor_t descriptor;
+    gif_image_index_t *buf;
+    size_t buf_sz;
+} gif_image_block_t;
 
 /**
  * Structure representing a parsed GIF file that can be read from or written to a file
  */
 typedef struct gif_t {
+    /** Header followed by a Logical Screen Descriptor */
     gif_header_t header;
+    /** Global color table, has length 0 if there is no GCT */
+    gif_color_table_t gct;
+    /** Buffer containing all image data blocks */
+    gif_image_block_t *blocks;
 } gif_t;
 
 /** \brief Open the gif file at the given path and attempt to parse a GIF file  */
