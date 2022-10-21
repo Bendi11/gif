@@ -8,6 +8,7 @@ enum {
     GIF_R_FERROR,
     GIF_R_INVALID_HEADER,
     GIF_R_ALLOC,
+    GIF_R_UNEXPECTED_SUBBLOCKS,
 };
 
 

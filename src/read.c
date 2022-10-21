@@ -1,6 +1,8 @@
 #include "gif/color.h"
 #include "gif/endian.h"
+#include "gif/error.h"
 #include "gif/header.h"
+#include "gif/log.h"
 #include <gif/read.h>
 #include <stdio.h>
 #include <malloc.h>
@@ -50,20 +52,20 @@ gif_err_t gif_read_file(FILE *file, gif_t *gif) {
         if(fread(&introducer, 1, sizeof(introducer), file) != 1) { return GIF_R_FERROR; }
         switch(introducer) {
             case GIF_INTRODUCER_TRAILER: {
-                puts("trailer");
+                LOG("trailer @ %lX", ftell(file) - 1);
                 trailer = true;
                 continue;
             } break;
 
             case GIF_INTRODUCER_IMG: {
-                puts("img");
+                LOG("img @ %lX", ftell(file) - 1);
                 gif_image_block_t img = {0};
                 img.descriptor.separator = introducer;
                 if((res = gif_image_descriptor_read(&img.descriptor, file)) != GIF_R_OK) {
                     return res;
                 }
                 
-                size_t len = img.descriptor.width + img.descriptor.height;
+                size_t len = img.descriptor.width * img.descriptor.height;
                 
                 if(img.descriptor.has_lct != 0) {
                     uint16_t entries = gif_image_descriptor_lct_entries_count(&img.descriptor);
@@ -72,6 +74,9 @@ gif_err_t gif_read_file(FILE *file, gif_t *gif) {
                     img.lct.entries = NULL;
                     img.lct.len = 0;
                 }
+
+                uint8_t min_lzw_code;
+                if(fread(&min_lzw_code, sizeof(min_lzw_code), 1, file) != 1) { return GIF_R_FERROR; }
 
                 gif_color_index_t *pxdata = calloc(sizeof(gif_color_index_t), len);
                 if(pxdata == NULL) { return GIF_R_ALLOC; }
@@ -85,13 +90,13 @@ gif_err_t gif_read_file(FILE *file, gif_t *gif) {
             case GIF_INTRODUCER_EXT: {
                 uint8_t bytes[2] = {0};
                 if(fread(bytes, sizeof(uint8_t), 2, file) != 2) { return GIF_R_FERROR; }
-                printf("ext lbl = %X, bs = %X\n", bytes[0], bytes[1]);
+                LOG("ext lbl = %X, bs = %X @ %lX", bytes[0], bytes[1], ftell(file) - 1);
                 fseek(file, bytes[1], SEEK_CUR);
                 if((res = gif_skip_subblocks(file)) != GIF_R_OK) { return res; }
-            }
+            } break;
 
             default: {
-                fprintf(stderr, "Unknown introducer %X\n", introducer);
+                LOG("Unknown introducer %X @ %lX", introducer, ftell(file) - 1);
             } break;
         }
     }  
@@ -117,11 +122,12 @@ gif_err_t gif_read_subblocks(FILE *file, void *data, size_t len) {
     for(;;) {
         uint8_t nbytes;
         if(fread(&nbytes, sizeof(nbytes), 1, file) != 1) { return GIF_R_FERROR; }
+        LOG("Subblock of sz %u @ %lX", nbytes, ftell(file) - 1);
         if(nbytes == 0) {
             return GIF_R_OK;
         }
         
-        if(idx + nbytes >= len) { return GIF_R_ALLOC; }
+        if(idx + nbytes >= len) { return GIF_R_UNEXPECTED_SUBBLOCKS; }
         if(fread(data + idx, 1, nbytes, file) != nbytes) { return GIF_R_FERROR; }
         idx += nbytes;
     }
@@ -163,6 +169,7 @@ char const *const gif_err_str(gif_err_t err) {
         case GIF_R_INVALID_HEADER: return "Invalid GIF header";
         case GIF_R_FERROR: return "Failed to read GIF file";
         case GIF_R_ALLOC: return "Failed to allocate memory";
+        case GIF_R_UNEXPECTED_SUBBLOCKS: return "Unexpected subblocks";
         default: return "(invalid error code)";
     }
 }

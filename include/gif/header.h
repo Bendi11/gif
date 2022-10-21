@@ -20,10 +20,15 @@ typedef struct gif_header_t {
     uint16_t lwidth;
     uint16_t lheight;
     //Packed into one byte 
-    uint8_t has_gct : 1;
-    uint8_t gct_color_resolution : 3;
-    uint8_t gct_sort : 1;
-    uint8_t gct_sz : 3;
+    union {
+        struct {
+            uint8_t gct_sz : 3;
+            uint8_t gct_sort : 1;
+            uint8_t gct_color_resolution : 3;
+            uint8_t has_gct : 1;
+        };
+        uint8_t packed;
+    };
 
     gif_color_index_t bg_color;
     uint8_t default_aspect_ratio;
@@ -39,11 +44,16 @@ typedef struct gif_image_descriptor_t {
     uint16_t width;
     uint16_t height;
     //Packed into one byte
-    uint8_t lct_sz : 3;
-    uint8_t _reserved : 2;
-    uint8_t lct_sorted : 1;
-    uint8_t interlace : 1;
-    uint8_t has_lct : 1;
+    union {
+        struct {
+            uint8_t has_lct : 1;
+            uint8_t interlace : 1;
+            uint8_t lct_sorted : 1;
+            uint8_t _reserved : 2;
+            uint8_t lct_sz : 3;
+        };
+        uint8_t packed;
+    };
 } gif_image_descriptor_t;
 
 
