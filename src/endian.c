@@ -1,4 +1,4 @@
-#include "endian.h"
+#include "gif/endian.h"
 
 static inline uint16_t swizzle16(uint16_t bytes) {
     return ((bytes & 0xff00) >> 8) |
@@ -36,4 +36,16 @@ uint32_t le_to_host32(uint32_t bytes) {
 uint64_t le_to_host64(uint64_t bytes) {
     if(IS_LITTLE_ENDIAN) { return bytes; }
     else { return swizzle64(bytes); }
+}
+
+void le_to_host(void *const erased, size_t len) {
+    if(IS_LITTLE_ENDIAN || len <= 1) { return; }
+    uint8_t *const bytes = (uint8_t *const)erased;
+    size_t last_idx = len - 1;
+    uint8_t tmp = 0;
+    for(size_t i = 0; i < len; ++i) {
+        tmp = bytes[i];
+        bytes[i] = bytes[last_idx - i];
+        bytes[last_idx - i] = tmp;
+    }
 }

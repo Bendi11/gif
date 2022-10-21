@@ -10,6 +10,7 @@ set(CMAKE_C_STANDARD 11)
 set(SRC
     "src/main.c"
     "src/endian.c"
+    "src/read.c"
 )
 
 add_executable(${CMAKE_PROJECT_NAME} ${SRC})

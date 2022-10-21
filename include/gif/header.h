@@ -17,5 +17,3 @@ typedef struct gif_header_t {
     uint8_t bg_color;
     uint8_t default_aspect_ratio;
 } gif_header_t;
-
-
