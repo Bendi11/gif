@@ -3,10 +3,10 @@
 #include <stdint.h>
 
 
-#define IS_LITTLE_ENDIAN ((*(uint8_t*)&(const uint16_t){1}) == 1)
+#define IS_LITTLE_ENDIAN 0// ((*(uint8_t*)&(const uint16_t){1}) == 1)
 
 /**
- * \brief Conver the given 2-byte sequence from little endian to the host byte order
+ * \brief Convert the given 2-byte sequence from little endian to the host byte order
  */
 uint16_t le_to_host16(uint16_t bytes);
 
