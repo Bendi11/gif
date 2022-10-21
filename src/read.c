@@ -1,9 +1,14 @@
+#include "gif/color.h"
 #include "gif/endian.h"
 #include "gif/header.h"
 #include <gif/read.h>
 #include <stdio.h>
 #include <malloc.h>
+#include <stdlib.h>
 #include <string.h>
+#include <stdbool.h>
+
+gif_err_t gif_image_descriptor_read(gif_image_descriptor_t *img, FILE *file);
 
 gif_err_t gif_open_file(const char *const path, gif_t *gif) {
     FILE *file = fopen(path, "r");
@@ -36,12 +41,66 @@ gif_err_t gif_read_file(FILE *file, gif_t *gif) {
         gif->gct.entries = NULL;
         gif->gct.len = 0;
     }
-
-    for(;;) {
+    
+    bool trailer = false;
+    while(!trailer) {
         uint8_t introducer = GIF_INTRODUCER_TRAILER;
+        if(fread(&introducer, 1, sizeof(introducer), file) != 1) { return GIF_R_FERROR; }
+        switch(introducer) {
+            case GIF_INTRODUCER_TRAILER: {
+                trailer = true;
+                continue;
+            } break;
+
+            case GIF_INTRODUCER_IMG: {
+                gif_image_descriptor_t descriptor = {0};
+                descriptor.separator = introducer;
+                gif_err_t res;
+                if((res = gif_image_descriptor_read(&descriptor, file)) != GIF_R_OK) {
+                    return res;
+                }
+                
+                size_t len = descriptor.width + descriptor.height;
+                gif_image_index_t *pxdata = calloc(sizeof(gif_image_index_t), len);
+                if(pxdata == NULL) { return GIF_R_ALLOC; }
+                if((res = gif_read_subblocks(file, pxdata, len)) != GIF_R_OK) { return res; }
+                
+                 
+            } break;
+        }
     }  
 
     return GIF_R_OK; 
+}
+
+gif_err_t gif_image_descriptor_read(gif_image_descriptor_t *img, FILE *file) {
+    //Read all bytes but the introducer
+    if(fread(&img->x, sizeof(*img) - sizeof(img->separator), 1, file) != 1) { return GIF_R_FERROR; }
+    if(!IS_LITTLE_ENDIAN) {
+        img->x = le_to_host16(img->x);
+        img->y = le_to_host16(img->y);
+        img->width = le_to_host16(img->width);
+        img->height = le_to_host16(img->height);
+    }
+
+    return GIF_R_OK;
+}
+
+gif_err_t gif_read_subblocks(FILE *file, void *data, size_t len) {
+    size_t idx = 0;
+    for(;;) {
+        uint8_t nbytes;
+        if(fread(&nbytes, sizeof(nbytes), 1, file) != 1) { return GIF_R_FERROR; }
+        if(nbytes == 0) {
+            return GIF_R_OK;
+        }
+        
+        if(idx + nbytes >= len) { return GIF_R_ALLOC; }
+        if(fread(data + idx, 1, nbytes, file) != nbytes) { return GIF_R_FERROR; }
+        idx += nbytes;
+    }
+
+    return GIF_R_OK;
 }
 
 uint16_t gif_header_gct_entries_count(const gif_header_t *const header) {
