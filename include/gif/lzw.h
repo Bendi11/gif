@@ -1,5 +1,6 @@
 #pragma once
 
+#include "gif/buf.h"
 #include <stdint.h>
 
 /** Abstraction over an array of bytes with a cursor tracking the bit position of the buffer, with methods to read and write to the buffer */
@@ -13,11 +14,17 @@ typedef struct bitbuffer_t {
  * Structure containing all state needed to decompress LZW encoded data with variable width codes
  */
 typedef struct lzw_decompressor_t {
-    /** Bit reader to get codes from */
-    bitbuffer_t buf;
     /** Current width to read input codes at */
-    uint8_t code_width; 
+    uint8_t code_width;
+    /** Buffer to write output data to */
+    bytebuf_t output; 
 } lzw_decompressor_t;
+
+/** \brief Create a new lzw_compressor_t with a default output capacity */
+gif_err_t lzw_decompressor_new(lzw_decompressor_t *decom, uint8_t min_code_width);
+
+/** \brief Create a new lzw_decompressor_t with the given output capacity */
+gif_err_t lzw_decompressor_new_with_cap(lzw_decompressor_t *decom, uint32_t cap, uint8_t min_code_width);
 
 /** \brief Read a value made of the given number of bits from this bit buffer */
 uint16_t bitbuffer_readn(bitbuffer_t *buf, uint8_t width);

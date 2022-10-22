@@ -13,6 +13,7 @@ set(SRC
     "src/read.c"
     "src/color.c"
     "src/lzw.c"
+    "src/buf.c"
 )
 
 add_executable(${CMAKE_PROJECT_NAME} ${SRC})
