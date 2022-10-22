@@ -14,6 +14,12 @@ gif_err_t lzw_decompressor_feed(lzw_decompressor_t *decom, void *bytes, uint32_t
     bitbuffer_new(&reader, bytes);
     while(reader.idx < nbytes - 1 || reader.bitpos >= decom->code_width) {
         uint16_t code = bitbuffer_readn(&reader, decom->code_width);
+
+        if(code == (1UL << decom->code_width) - 1) {
+            decom->code_width += 1;
+            continue;
+        }
+
         lzw_tbl_entry_t *entry = &decom->tbl.entries[code];
         if(entry->len != 0) {
             uint8_t *str = &decom->tbl.strbuf.bytes[entry->offset];
@@ -74,14 +80,15 @@ void bitbuffer_new(bitbuffer_t *buf, void *bytes) {
     buf->bitpos = 7;
 }
 
-gif_err_t lzw_decompressor_new(lzw_decompressor_t *decom, uint8_t min_code_width) {
-    return lzw_decompressor_new_with_cap(decom, 1024, min_code_width);
+gif_err_t lzw_decompressor_new(lzw_decompressor_t *decom) {
+    return lzw_decompressor_new_with_cap(decom, 1024);
 }
 
-gif_err_t lzw_decompressor_new_with_cap(lzw_decompressor_t *decom, uint32_t cap, uint8_t min_code_width) {
+gif_err_t lzw_decompressor_new_with_cap(lzw_decompressor_t *decom, uint32_t cap) {
     gif_err_t res;
     if((res = bytebuf_new_with_cap(&decom->output, cap)) != GIF_R_OK) { return res; }
     if((res = bytebuf_new_with_cap(&decom->tbl.strbuf, 512)) != GIF_R_OK) { return res; }
+    
     memset(&decom->tbl.entries[LZW_FIRST_CODE], 0, (LZW_MAX_TBL_ENTRIES - LZW_FIRST_CODE) * sizeof(decom->tbl.entries[0]));
     uint8_t i = 0;
     do {
@@ -92,7 +99,29 @@ gif_err_t lzw_decompressor_new_with_cap(lzw_decompressor_t *decom, uint32_t cap,
         i += 1;
     } while(i != 0);
     decom->tbl.free_entry = LZW_FIRST_CODE;
-    decom->code_width = min_code_width;
     decom->prev = INVALID_CODE; 
+    decom->code_width = 12;
+
     return GIF_R_OK;
+}
+
+void lzw_decompressor_start(lzw_decompressor_t *decom, uint8_t code_width) {
+    decom->code_width = code_width;
+}
+
+uint8_t* lzw_decompressor_finish(lzw_decompressor_t *decom) {
+    decom->output.len = 0;
+    decom->prev = INVALID_CODE;
+    memset(&decom->tbl.entries[LZW_FIRST_CODE], 0, (LZW_MAX_TBL_ENTRIES - LZW_FIRST_CODE) * sizeof(decom->tbl.entries[0]));
+    decom->tbl.free_entry = LZW_FIRST_CODE;
+    decom->tbl.strbuf.len = 0;
+
+    uint8_t *decompressed = decom->output.bytes;
+    bytebuf_new(&decom->output);
+    return decompressed;
+}
+
+void lzw_decompressor_free(lzw_decompressor_t *decom) {
+    bytebuf_free(decom->output);
+    bytebuf_free(decom->tbl.strbuf);
 }

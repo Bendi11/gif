@@ -3,6 +3,7 @@
 #include "gif/error.h"
 #include "gif/header.h"
 #include "gif/log.h"
+#include "gif/lzw.h"
 #include <gif/read.h>
 #include <stdio.h>
 #include <malloc.h>
@@ -47,6 +48,9 @@ gif_err_t gif_read_file(FILE *file, gif_t *gif) {
     if((res = gif_image_blocks_new(&gif->blocks)) != GIF_R_OK) { return res; }
     
     bool trailer = false;
+    lzw_decompressor_t dec;
+    if((res = lzw_decompressor_new(&dec)) != GIF_R_OK) { return res; }
+
     while(!trailer) {
         uint8_t introducer = GIF_INTRODUCER_TRAILER;
         if(fread(&introducer, 1, sizeof(introducer), file) != 1) { return GIF_R_FERROR; }
@@ -77,10 +81,10 @@ gif_err_t gif_read_file(FILE *file, gif_t *gif) {
 
                 uint8_t min_lzw_code;
                 if(fread(&min_lzw_code, sizeof(min_lzw_code), 1, file) != 1) { return GIF_R_FERROR; }
+                lzw_decompressor_start(&dec, min_lzw_code);
 
-                gif_color_index_t *pxdata = calloc(sizeof(gif_color_index_t), len);
-                if(pxdata == NULL) { return GIF_R_ALLOC; }
-                if((res = gif_read_subblocks(file, pxdata, len)) != GIF_R_OK) { return res; }
+                if((res = gif_decompress_subblocks(file, &dec)) != GIF_R_OK) { return res; }
+                gif_color_index_t *pxdata = lzw_decompressor_finish(&dec);
                 
                 img.buf = pxdata;
                 img.buf_sz = len;
@@ -115,6 +119,19 @@ gif_err_t gif_image_descriptor_read(gif_image_descriptor_t *img, FILE *file) {
     }
 
     return GIF_R_OK;
+}
+
+gif_err_t gif_decompress_subblocks(FILE *file, lzw_decompressor_t *dec) {
+    uint8_t block_buf[256] = {0};
+    for(;;) {
+        uint8_t nbytes;
+        if(fread(&nbytes, sizeof(nbytes), 1, file) != 1) { return GIF_R_FERROR; }
+        LOG("Decompressing subblock of sz %u @ %lX", nbytes, ftell(file) - 1);
+        if(nbytes == 0) { return GIF_R_OK; }
+
+        if(fread(block_buf, 1, nbytes, file) != nbytes) { return GIF_R_FERROR; }
+        lzw_decompressor_feed(dec, block_buf, nbytes);
+    }
 }
 
 gif_err_t gif_read_subblocks(FILE *file, void *data, size_t len) {

@@ -2,6 +2,7 @@
 
 #include "gif/color.h"
 #include "gif/header.h"
+#include "gif/lzw.h"
 #include <stdint.h>
 #include <stdio.h>
 
@@ -47,3 +48,6 @@ gif_err_t gif_read_file(FILE *file, gif_t *gif);
 
 /** \brief Read a linked list of data subblocks into `data`, ensuring that read bytes do not exceed `len` */
 gif_err_t gif_read_subblocks(FILE *file, void *data, size_t len);
+
+/** \brief Read a linked list of data subblocks, decompressing using the given `lzw_decompressor_t` structure */
+gif_err_t gif_decompress_subblocks(FILE *file, lzw_decompressor_t *dec);

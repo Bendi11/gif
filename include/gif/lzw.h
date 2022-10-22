@@ -53,13 +53,22 @@ typedef struct lzw_decompressor_t {
 gif_err_t lzw_decompressor_feed(lzw_decompressor_t *decom, void *bytes, uint32_t nbytes);
 
 /** \brief Create a new lzw_compressor_t with a default output capacity */
-gif_err_t lzw_decompressor_new(lzw_decompressor_t *decom, uint8_t min_code_width);
+gif_err_t lzw_decompressor_new(lzw_decompressor_t *decom);
+
+/** \brief Start decompression with the given starting code width */
+void lzw_decompressor_start(lzw_decompressor_t *decom, uint8_t code_width);
+
+/** \brief Reset the given LZW decompressor dictionary and return an owned pointer to the decompressed data */
+uint8_t* lzw_decompressor_finish(lzw_decompressor_t *decom);
 
 /** \brief Create a new lzw_decompressor_t with the given output capacity */
-gif_err_t lzw_decompressor_new_with_cap(lzw_decompressor_t *decom, uint32_t cap, uint8_t min_code_width);
+gif_err_t lzw_decompressor_new_with_cap(lzw_decompressor_t *decom, uint32_t cap);
 
 /** \brief Read a value made of the given number of bits from this bit buffer */
 uint16_t bitbuffer_readn(bitbuffer_t *buf, uint8_t width);
 
 /** \brief Create a new bit buffer, backed by the given pointer (not copied) */
 void bitbuffer_new(bitbuffer_t *buf, void *bytes);
+
+/** \brief Free all resources allocated for the given LZW decompressor */
+void lzw_decompressor_free(lzw_decompressor_t *decom);
