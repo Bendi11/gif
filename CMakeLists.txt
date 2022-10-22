@@ -12,6 +12,7 @@ set(SRC
     "src/endian.c"
     "src/read.c"
     "src/color.c"
+    "src/lzw.c"
 )
 
 add_executable(${CMAKE_PROJECT_NAME} ${SRC})
