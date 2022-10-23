@@ -65,48 +65,26 @@ gif_err_t lzw_decompressor_feed(lzw_decompressor_t *decom, void *bytes, uint32_t
             }
             code = decom->tbl.entries[code].prev;
         }
-        for(uint16_t i = 0; i < len; ++i) {
-            LOG("decompress %.02X -> %.02X", decom->prev, decom->output[i]);
-        }
         decom->output += len;
 
     }
     return GIF_R_OK;
 }
 
-
-#define BYTE_TO_BINARY_PATTERN "%c%c%c%c%c%c%c%c"
-#define BYTE_TO_BINARY(byte)  \
-  (byte & 0x80 ? '1' : '0'), \
-  (byte & 0x40 ? '1' : '0'), \
-  (byte & 0x20 ? '1' : '0'), \
-  (byte & 0x10 ? '1' : '0'), \
-  (byte & 0x08 ? '1' : '0'), \
-  (byte & 0x04 ? '1' : '0'), \
-  (byte & 0x02 ? '1' : '0'), \
-  (byte & 0x01 ? '1' : '0')
-
 uint16_t bitbuffer_readn(bitbuffer_t *buf, uint8_t width) {
     uint16_t val = 0;
     
-    // Always read one more bit than the code length
-    for (uint16_t i = 0; i < width; i++ )
-    {
-      // This is different than in the file read example; that 
-      // was a call to "next_bit"
-      buf->bit = (*buf->buf & buf->mask) ? 1 : 0;
-      buf->mask <<= 1;
+    for (uint16_t i = 0; i < width; i++) {
+        uint8_t bit = (*buf->buf & buf->mask) ? 1 : 0;
+        buf->mask <<= 1;
 
-      if (buf->mask == 0x100)  {
-        buf->mask = 0x01;
-        buf->buf++;
-      }
+        if (buf->mask == 0x100)  {
+            buf->mask = 0x01;
+            buf->buf++;
+        }
 
-      val = val | ( buf->bit << i );
+        val = val | ( bit << i );
     }
-
-    //LOG("bitread w=%u, val= %X, byte %p, pos %zu = " BYTE_TO_BINARY_PATTERN, width, val, buf->buf, buf->bitpos, BYTE_TO_BINARY(buf->buf[buf->bitpos / 8]));
-
 
     buf->bitpos += width;
 
@@ -117,7 +95,6 @@ void bitbuffer_new(bitbuffer_t *buf, void *bytes) {
     buf->buf = (uint8_t*)bytes;
     buf->bitpos = 0;
     buf->mask = 0x01;
-    buf->bit = 0;
 }
 
 void lzw_decompressor_new(lzw_decompressor_t *decom) {

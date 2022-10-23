@@ -16,7 +16,6 @@ typedef struct bitbuffer_t {
     uint8_t *buf;
     uint64_t bitpos;
     uint16_t mask;
-    uint16_t bit;
 } bitbuffer_t;
 
 /** An entry in an `lzw_decompressor_tbl_t` */
