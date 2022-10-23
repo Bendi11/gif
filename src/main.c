@@ -12,6 +12,7 @@ FILE *gif_log_file;
 int main(int argc, const char * const argv[]) {
     gif_log_file = stdout;
     
+    
     gif_t gif;
     gif_err_t res;
     if((res = gif_open_file("../test.gif", &gif)) != GIF_R_OK) {
@@ -25,13 +26,19 @@ int main(int argc, const char * const argv[]) {
         "Has GCT: %u\n"
         "GCT sz: %u\n"
         "GCT entries: %u\n"
-        "Image size: %zu\n",
+        "Has LCT: %u\n"
+        "LCT sz: %u\n"
+        "LCT entries: %u\n"
+        "Num images: %zu\n",
         gif.header.header,
         gif.header.lwidth,
         gif.header.lheight,
         gif.header.has_gct,
         gif.header.gct_sz,
         gif_header_gct_entries_count(&gif.header),
+        gif.blocks.images[0].descriptor.has_lct,
+        gif.blocks.images[0].descriptor.lct_sz,
+        gif_image_descriptor_lct_entries_count(&gif.blocks.images[0].descriptor),
         gif.blocks.len
     );
     return 0;

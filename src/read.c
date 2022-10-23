@@ -23,7 +23,6 @@ gif_err_t gif_open_file(const char *const path, gif_t *gif) {
     return result;
 }
 
-
 gif_err_t gif_read_file(FILE *file, gif_t *gif) {
     gif_err_t res;
     if(fread(&gif->header, sizeof(gif->header), 1, file) != 1) { return GIF_R_FERROR; }
@@ -49,7 +48,7 @@ gif_err_t gif_read_file(FILE *file, gif_t *gif) {
     
     bool trailer = false;
     lzw_decompressor_t dec;
-    if((res = lzw_decompressor_new(&dec)) != GIF_R_OK) { return res; }
+    lzw_decompressor_new(&dec);
 
     while(!trailer) {
         uint8_t introducer = GIF_INTRODUCER_TRAILER;
@@ -79,12 +78,16 @@ gif_err_t gif_read_file(FILE *file, gif_t *gif) {
                     img.lct.len = 0;
                 }
 
-                uint8_t min_lzw_code;
-                if(fread(&min_lzw_code, sizeof(min_lzw_code), 1, file) != 1) { return GIF_R_FERROR; }
-                lzw_decompressor_start(&dec, min_lzw_code);
+                uint8_t *pxdata = malloc(len);
 
+                uint8_t min_lzw_code;
+                LOG("img 2 read min lzw code width %s", "");
+                if(fread(&min_lzw_code, sizeof(min_lzw_code), 1, file) != 1) { return GIF_R_FERROR; }
+                LOG("Beginning decompression with min lzw code width %u", min_lzw_code);
+                lzw_decompressor_start(&dec, min_lzw_code, pxdata);
+            
                 if((res = gif_decompress_subblocks(file, &dec)) != GIF_R_OK) { return res; }
-                gif_color_index_t *pxdata = lzw_decompressor_finish(&dec);
+                lzw_decompressor_finish(&dec);
                 
                 img.buf = pxdata;
                 img.buf_sz = len;
@@ -92,6 +95,7 @@ gif_err_t gif_read_file(FILE *file, gif_t *gif) {
             } break;
 
             case GIF_INTRODUCER_EXT: {
+                LOG("ext @ %lX", ftell(file) - 1);
                 uint8_t bytes[2] = {0};
                 if(fread(bytes, sizeof(uint8_t), 2, file) != 2) { return GIF_R_FERROR; }
                 LOG("ext lbl = %X, bs = %X @ %lX", bytes[0], bytes[1], ftell(file) - 1);
@@ -103,14 +107,14 @@ gif_err_t gif_read_file(FILE *file, gif_t *gif) {
                 LOG("Unknown introducer %X @ %lX", introducer, ftell(file) - 1);
             } break;
         }
-    }  
+    }
 
     return GIF_R_OK; 
 }
 
 gif_err_t gif_image_descriptor_read(gif_image_descriptor_t *img, FILE *file) {
     //Read all bytes but the introducer
-    if(fread(&img->x, sizeof(*img) - sizeof(img->separator), 1, file) != 1) { return GIF_R_FERROR; }
+    if(fread(img + sizeof(img->separator), sizeof(*img) - sizeof(img->separator), 1, file) != 1) { return GIF_R_FERROR; }
     if(!IS_LITTLE_ENDIAN) {
         img->x = le_to_host16(img->x);
         img->y = le_to_host16(img->y);
@@ -122,6 +126,7 @@ gif_err_t gif_image_descriptor_read(gif_image_descriptor_t *img, FILE *file) {
 }
 
 gif_err_t gif_decompress_subblocks(FILE *file, lzw_decompressor_t *dec) {
+    gif_err_t res; 
     uint8_t block_buf[256] = {0};
     for(;;) {
         uint8_t nbytes;
@@ -130,7 +135,7 @@ gif_err_t gif_decompress_subblocks(FILE *file, lzw_decompressor_t *dec) {
         if(nbytes == 0) { return GIF_R_OK; }
 
         if(fread(block_buf, 1, nbytes, file) != nbytes) { return GIF_R_FERROR; }
-        lzw_decompressor_feed(dec, block_buf, nbytes);
+        if((res = lzw_decompressor_feed(dec, block_buf, nbytes)) != GIF_R_OK) { return res; }
     }
 }
 
