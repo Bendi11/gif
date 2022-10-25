@@ -85,8 +85,13 @@ gif_err_t gif_read_file(FILE *file, gif_t *gif) {
                 if(fread(&min_lzw_code, sizeof(min_lzw_code), 1, file) != 1) { return GIF_R_FERROR; }
                 LOG("Beginning decompression with min lzw code width %u", min_lzw_code);
                 lzw_decompressor_start(&dec, min_lzw_code, pxdata);
-            
-                if((res = gif_decompress_subblocks(file, &dec)) != GIF_R_OK) { return res; }
+
+                bytebuf_t buf;
+                bytebuf_new(&buf);
+                
+                if((res = gif_read_subblocks_to(file, &buf)) != GIF_R_OK) { return res; }
+                if((res = lzw_decompressor_feed(&dec, buf.bytes, buf.len)) != GIF_R_OK) { return res; }
+                //if((res = gif_decompress_subblocks(file, &dec)) != GIF_R_OK) { return res; }
                 lzw_decompressor_finish(&dec);
                 
                 img.buf = pxdata;
@@ -135,8 +140,29 @@ gif_err_t gif_decompress_subblocks(FILE *file, lzw_decompressor_t *dec) {
         if(nbytes == 0) { return GIF_R_OK; }
 
         if(fread(block_buf, 1, nbytes, file) != nbytes) { return GIF_R_FERROR; }
+        lzw_decompressor_start(dec, dec->original_code_width, dec->output);
         if((res = lzw_decompressor_feed(dec, block_buf, nbytes)) != GIF_R_OK) { return res; }
     }
+}
+
+gif_err_t gif_read_subblocks_to(FILE *file, bytebuf_t *buf) {
+    gif_err_t res;
+    for(;;) {
+        uint8_t nbytes;
+        if(fread(&nbytes, sizeof(nbytes), 1, file) != 1) { return GIF_R_FERROR; }
+        LOG("Subblock of sz %u @ %lX", nbytes, ftell(file) - 1);
+        if(nbytes == 0) {
+            return GIF_R_OK;
+        }
+        
+
+        if((res = bytebuf_grow(buf, nbytes + 1)) != GIF_R_OK) { return res; }
+        if(fread(&buf->bytes[buf->len], 1, nbytes, file) != nbytes) { return GIF_R_FERROR; }
+        buf->len += nbytes;
+    }
+
+    return GIF_R_OK;
+
 }
 
 gif_err_t gif_read_subblocks(FILE *file, void *data, size_t len) {

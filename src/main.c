@@ -41,5 +41,17 @@ int main(int argc, const char * const argv[]) {
         gif_image_descriptor_lct_entries_count(&gif.blocks.images[0].descriptor),
         gif.blocks.len
     );
+    
+    for(uint16_t y = 0; y < gif.header.lheight; ++y) {
+        for(uint16_t x = 0; x < gif.header.lwidth; ++x) {
+            if(gif.blocks.images[0].buf[y * gif.header.lwidth + x] == 1) {
+                putchar('1');
+            } else {
+                putchar('0');
+            }
+        }
+        puts("");
+    }
+
     return 0;
 }
