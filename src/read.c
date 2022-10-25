@@ -1,3 +1,4 @@
+#include "gif/buf.h"
 #include "gif/color.h"
 #include "gif/endian.h"
 #include "gif/error.h"
@@ -85,13 +86,21 @@ gif_err_t gif_read_file(FILE *file, gif_t *gif) {
                 if(fread(&min_lzw_code, sizeof(min_lzw_code), 1, file) != 1) { return GIF_R_FERROR; }
                 LOG("Beginning decompression with min lzw code width %u", min_lzw_code);
                 lzw_decompressor_start(&dec, min_lzw_code, pxdata);
-            
+                //bytebuf_t buf;
+                //bytebuf_new(&buf);
+
+
+                //if((res = gif_read_subblocks_to(file, &buf)) != GIF_R_OK) { return res; }
+                
+
+                //if((res = lzw_decompressor_feed(&dec, buf.bytes, buf.len)) != GIF_R_OK) { return res; }
+
                 if((res = gif_decompress_subblocks(file, &dec)) != GIF_R_OK) { return res; }
                 lzw_decompressor_finish(&dec);
                 
                 img.buf = pxdata;
                 img.buf_sz = len;
-                gif_image_blocks_add(&gif->blocks, img);
+                if((res = gif_image_blocks_add(&gif->blocks, img)) != GIF_R_OK) { return res; }
             } break;
 
             case GIF_INTRODUCER_EXT: {
@@ -137,6 +146,26 @@ gif_err_t gif_decompress_subblocks(FILE *file, lzw_decompressor_t *dec) {
         if(fread(block_buf, 1, nbytes, file) != nbytes) { return GIF_R_FERROR; }
         if((res = lzw_decompressor_feed(dec, block_buf, nbytes)) != GIF_R_OK) { return res; }
     }
+}
+
+gif_err_t gif_read_subblocks_to(FILE *file, bytebuf_t *buf) {
+    gif_err_t res;
+    uint8_t tmp[256] = {0};
+    for(;;) {
+        uint8_t nbytes;
+        if(fread(&nbytes, sizeof(nbytes), 1, file) != 1) { return GIF_R_FERROR; }
+        LOG("Subblock of sz %u @ %lX", nbytes, ftell(file) - 1);
+        if(nbytes == 0) {
+            return GIF_R_OK;
+        }
+        
+
+        if(fread(tmp, 1, nbytes, file) != nbytes) { return GIF_R_FERROR; }
+        if((res = bytebuf_append(buf, tmp, nbytes)) != GIF_R_OK) { return res; }
+    }
+
+    return GIF_R_OK;
+
 }
 
 gif_err_t gif_read_subblocks(FILE *file, void *data, size_t len) {

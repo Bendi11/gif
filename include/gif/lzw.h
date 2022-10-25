@@ -1,6 +1,8 @@
 #pragma once
 
 #include "gif/buf.h"
+#include "gif/header.h"
+#include <stddef.h>
 #include <stdint.h>
 
 
@@ -54,6 +56,8 @@ typedef struct lzw_decompressor_t {
     uint16_t clear;
     /** Special code */
     uint16_t stop;
+    /** Output offset */
+    size_t output_off;
 } lzw_decompressor_t;
 
 /** \brief Consume `nbytes` from `bytes` and write the decompressed data to the output */
